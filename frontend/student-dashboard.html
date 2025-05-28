@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - Smart Attendance System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header dashboard-header">
+      <div class="logo">
+        <span class="logo-text">new_attendance</span>
+      </div>
+      <nav class="nav">
+        <ul>
+          <li><a href="#" class="active">Dashboard</a></li>
+          <li><a href="#" id="join-module-btn">Join Module</a></li>
+          <li><a href="#" id="sign-attendance-btn">Sign Attendance</a></li>
+          <li><a href="#" id="logout-btn">Logout</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="main dashboard-main">
+      <div class="dashboard-header">
+        <h1>Student Dashboard</h1>
+        <p id="welcome-message">Welcome, Student</p>
+      </div>
+      
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Modules</h3>
+            <div class="stat-value" id="modules-count">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Attendance Rate</h3>
+            <div class="stat-value" id="attendance-rate">0%</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Sessions Attended</h3>
+            <div class="stat-value" id="sessions-attended">0</div>
+          </div>
+        </div>
+      </div>
+      
+      <section class="dashboard-section">
+        <div class="section-header">
+          <h2>My Modules</h2>
+        </div>
+        <div class="modules-grid" id="modules-container">
+          <!-- Modules will be loaded here -->
+          <div class="empty-state" id="no-modules">
+            <p>You haven't joined any modules yet.</p>
+            <button id="empty-join-btn" class="btn btn-primary">Join a Module</button>
+          </div>
+        </div>
+      </section>
+      
+      <section class="dashboard-section">
+        <div class="section-header">
+          <h2>Recent Attendance</h2>
+        </div>
+        <div class="attendance-list" id="attendance-container">
+          <!-- Recent attendance records will be loaded here -->
+          <div class="empty-state" id="no-attendance">
+            <p>No attendance records found.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Join Module Modal -->
+    <div class="modal" id="join-module-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Join a Module</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="join-module-form">
+            <div class="form-group">
+              <label for="module-invite-code">Module Invite Code</label>
+              <input type="text" id="module-invite-code" placeholder="e.g. INV-XYZ123" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Join Module</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sign Attendance Modal -->
+    <div class="modal" id="sign-attendance-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Sign Attendance</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="sign-attendance-form">
+            <div class="form-group">
+              <label for="session-code">Session Code</label>
+              <input type="text" id="session-code" placeholder="Enter session code" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Sign Attendance</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module Details Modal -->
+    <div class="modal" id="module-details-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="module-details-title">Module Details</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="module-details-content">
+          <!-- Module details will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <p>&copy; 2025 Smart Attendance System. All rights reserved.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check authentication
+      const token = sessionStorage.getItem('token');
+      const userType = sessionStorage.getItem('userType');
+      
+      if (!token || userType !== 'student') {
+        window.location.href = 'student-login.html';
+        return;
+      }
+      
+      // Parse JWT payload
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      document.getElementById('welcome-message').textContent = `Welcome, ${payload.name}`;
+      
+      // Initialize dashboard
+      loadModules();
+      loadAttendanceStats();
+      
+      // Event listeners for modals
+      const joinModuleBtn = document.getElementById('join-module-btn');
+      const joinModuleModal = document.getElementById('join-module-modal');
+      const emptyJoinBtn = document.getElementById('empty-join-btn');
+      
+      joinModuleBtn.addEventListener('click', () => {
+        joinModuleModal.style.display = 'block';
+      });
+      
+      emptyJoinBtn.addEventListener('click', () => {
+        joinModuleModal.style.display = 'block';
+      });
+      
+      const signAttendanceBtn = document.getElementById('sign-attendance-btn');
+      const signAttendanceModal = document.getElementById('sign-attendance-modal');
+      
+      signAttendanceBtn.addEventListener('click', () => {
+        signAttendanceModal.style.display = 'block';
+      });
+      
+      // Close buttons for modals
+      document.querySelectorAll('.close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+          });
+        });
+      });
+      
+      // Close modal when clicking outside
+      window.addEventListener('click', (e) => {
+        document.querySelectorAll('.modal').forEach(modal => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      });
+      
+      // Form submissions
+      const joinModuleForm = document.getElementById('join-module-form');
+      
+      joinModuleForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const inviteCode = document.getElementById('module-invite-code').value;
+        
+        try {
+          const response = await fetch('http://localhost:3000/student/join-module', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ invite_code: inviteCode }),
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showAlert('Successfully joined the module!', 'success');
+            joinModuleModal.style.display = 'none';
+            document.getElementById('module-invite-code').value = '';
+            loadModules();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch (error) {
+          showAlert('An error occurred. Please try again later.', 'error');
+          console.error('Error:', error);
+        }
+      });
+      
+      const signAttendanceForm = document.getElementById('sign-attendance-form');
+      
+      signAttendanceForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const sessionCode = document.getElementById('session-code').value;
+        
+        try {
+          const response = await fetch('http://localhost:3000/attendance/sign', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ session_code: sessionCode }),
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showAlert('Attendance signed successfully!', 'success');
+            signAttendanceModal.style.display = 'none';
+            document.getElementById('session-code').value = '';
+            loadAttendanceStats();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch (error) {
+          showAlert('An error occurred. Please try again later.', 'error');
+          console.error('Error:', error);
+        }
+      });
+      
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userType');
+        window.location.href = 'index.html';
+      });
+    });
+    
+    async function loadModules() {
+      const token = sessionStorage.getItem('token');
+      const modulesContainer = document.getElementById('modules-container');
+      const noModules = document.getElementById('no-modules');
+      
+      try {
+        const response = await fetch('http://localhost:3000/module/list', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const modules = await response.json();
+        
+        if (modules.length === 0) {
+          noModules.style.display = 'flex';
+          modulesContainer.innerHTML = '';
+          document.getElementById('modules-count').textContent = '0';
+          return;
+        }
+        
+        noModules.style.display = 'none';
+        document.getElementById('modules-count').textContent = modules.length;
+        
+        modulesContainer.innerHTML = modules.map(module => `
+          <div class="module-card" data-module-id="${module.id}" data-module-code="${module.code}">
+            <div class="module-card-header">
+              <h3>${module.name}</h3>
+              <span class="module-code">${module.code}</span>
+            </div>
+            <div class="module-card-body">
+              <p><strong>Invite Code:</strong> ${module.invite_code}</p>
+              <button class="btn btn-secondary view-details-btn">View Details</button>
+            </div>
+          </div>
+        `).join('');
+        
+        // Add event listeners to view details buttons
+        document.querySelectorAll('.view-details-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const moduleCard = e.target.closest('.module-card');
+            const moduleCode = moduleCard.dataset.moduleCode;
+            openModuleDetails(moduleCode);
+          });
+        });
+      } catch (error) {
+        showAlert('Failed to load modules', 'error');
+        console.error('Error:', error);
+      }
+    }
+    
+    async function loadAttendanceStats() {
+      const token = sessionStorage.getItem('token');
+      const attendanceContainer = document.getElementById('attendance-container');
+      const noAttendance = document.getElementById('no-attendance');
+      
+      try {
+        const modulesResponse = await fetch('http://localhost:3000/module/list', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const modules = await modulesResponse.json();
+        
+        if (modules.length === 0) {
+          noAttendance.style.display = 'flex';
+          attendanceContainer.innerHTML = '';
+          document.getElementById('attendance-rate').textContent = '0%';
+          document.getElementById('sessions-attended').textContent = '0';
+          return;
+        }
+        
+        // Get attendance for the first module (just for demo)
+        const moduleCode = modules[0].code;
+        
+        const attendanceResponse = await fetch(`http://localhost:3000/attendance/student/${moduleCode}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const attendanceData = await attendanceResponse.json();
+        
+        // Update stats
+        const attendanceRate = attendanceData.statistics.total_sessions > 0 
+          ? Math.round((attendanceData.statistics.attended / attendanceData.statistics.total_sessions) * 100) 
+          : 0;
+        
+        document.getElementById('attendance-rate').textContent = `${attendanceRate}%`;
+        document.getElementById('sessions-attended').textContent = attendanceData.statistics.attended;
+        
+        // Display recent attendance
+        if (attendanceData.attendances.length === 0) {
+          noAttendance.style.display = 'flex';
+          attendanceContainer.innerHTML = '';
+          return;
+        }
+        
+        noAttendance.style.display = 'none';
+        
+        attendanceContainer.innerHTML = `
+          <div class="attendance-header">
+            <div class="attendance-cell">Session Code</div>
+            <div class="attendance-cell">Date</div>
+            <div class="attendance-cell">Time</div>
+            <div class="attendance-cell">Status</div>
+          </div>
+        `;
+        
+        attendanceData.attendances.slice(0, 5).forEach(attendance => {
+          const date = new Date(attendance.signed_at);
+          const formattedDate = date.toLocaleDateString();
+          const formattedTime = date.toLocaleTimeString();
+          
+          attendanceContainer.innerHTML += `
+            <div class="attendance-row">
+              <div class="attendance-cell">${attendance.session_code}</div>
+              <div class="attendance-cell">${formattedDate}</div>
+              <div class="attendance-cell">${formattedTime}</div>
+              <div class="attendance-cell"><span class="attendance-status present">Present</span></div>
+            </div>
+          `;
+        });
+      } catch (error) {
+        showAlert('Failed to load attendance data', 'error');
+        console.error('Error:', error);
+      }
+    }
+    
+    async function openModuleDetails(moduleCode) {
+      const token = sessionStorage.getItem('token');
+      const moduleDetailsModal = document.getElementById('module-details-modal');
+      const moduleDetailsContent = document.getElementById('module-details-content');
+      const moduleDetailsTitle = document.getElementById('module-details-title');
+      
+      try {
+        const attendanceResponse = await fetch(`http://localhost:3000/attendance/student/${moduleCode}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const attendanceData = await attendanceResponse.json();
+        
+        moduleDetailsTitle.textContent = attendanceData.module.name;
+        
+        const attendanceRate = attendanceData.statistics.total_sessions > 0 
+          ? Math.round((attendanceData.statistics.attended / attendanceData.statistics.total_sessions) * 100) 
+          : 0;
+        
+        moduleDetailsContent.innerHTML = `
+          <div class="module-details">
+            <div class="module-info">
+              <p><strong>Module Code:</strong> ${attendanceData.module.code}</p>
+              <p><strong>Invite Code:</strong> ${attendanceData.module.invite_code}</p>
+            </div>
+            
+            <div class="module-stats">
+              <div class="stat-item">
+                <div class="stat-value">${attendanceRate}%</div>
+                <div class="stat-label">Attendance Rate</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${attendanceData.statistics.attended}</div>
+                <div class="stat-label">Sessions Attended</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${attendanceData.statistics.total_sessions}</div>
+                <div class="stat-label">Total Sessions</div>
+              </div>
+            </div>
+            
+            <h3>Attendance History</h3>
+            <div class="attendance-list">
+              <div class="attendance-header">
+                <div class="attendance-cell">Session Code</div>
+                <div class="attendance-cell">Date</div>
+                <div class="attendance-cell">Time</div>
+              </div>
+        `;
+        
+        if (attendanceData.attendances.length === 0) {
+          moduleDetailsContent.innerHTML += `
+            <div class="empty-state">
+              <p>No attendance records found for this module.</p>
+            </div>
+          `;
+        } else {
+          attendanceData.attendances.forEach(attendance => {
+            const date = new Date(attendance.signed_at);
+            const formattedDate = date.toLocaleDateString();
+            const formattedTime = date.toLocaleTimeString();
+            
+            moduleDetailsContent.innerHTML += `
+              <div class="attendance-row">
+                <div class="attendance-cell">${attendance.session_code}</div>
+                <div class="attendance-cell">${formattedDate}</div>
+                <div class="attendance-cell">${formattedTime}</div>
+              </div>
+            `;
+          });
+        }
+        
+        moduleDetailsContent.innerHTML += `
+            </div>
+          </div>
+        `;
+        
+        moduleDetailsModal.style.display = 'block';
+      } catch (error) {
+        showAlert('Failed to load module details', 'error');
+        console.error('Error:', error);
+      }
+    }
+  </script>
+</body>
+</html>

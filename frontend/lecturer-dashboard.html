@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lecturer Dashboard - Smart Attendance System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header dashboard-header">
+      <div class="logo">
+        <span class="logo-text">new_attendance</span>
+      </div>
+      <nav class="nav">
+        <ul>
+          <li><a href="#" class="active">Dashboard</a></li>
+          <li><a href="#" id="create-module-btn">Create Module</a></li>
+          <li><a href="#" id="generate-session-btn">Generate Session Code</a></li>
+          <li><a href="#" id="logout-btn">Logout</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="main dashboard-main">
+      <div class="dashboard-header">
+        <h1>Lecturer Dashboard</h1>
+        <p id="welcome-message">Welcome, Lecturer</p>
+      </div>
+      
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Modules</h3>
+            <div class="stat-value" id="modules-count">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Total Students</h3>
+            <div class="stat-value" id="students-count">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <h3>Active Sessions</h3>
+            <div class="stat-value" id="active-sessions">0</div>
+          </div>
+        </div>
+      </div>
+      
+      <section class="dashboard-section">
+        <div class="section-header">
+          <h2>My Modules</h2>
+        </div>
+        <div class="modules-grid" id="modules-container">
+          <!-- Modules will be loaded here -->
+          <div class="empty-state" id="no-modules">
+            <p>You haven't created any modules yet.</p>
+            <button id="empty-create-btn" class="btn btn-primary">Create a Module</button>
+          </div>
+        </div>
+      </section>
+      
+      <section class="dashboard-section" id="active-session-section" style="display: none;">
+        <div class="section-header">
+          <h2>Active Session</h2>
+        </div>
+        <div class="active-session-card" id="active-session-card">
+          <!-- Active session will be loaded here -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Create Module Modal -->
+    <div class="modal" id="create-module-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Create a New Module</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="create-module-form">
+            <div class="form-group">
+              <label for="module-code">Module Code</label>
+              <input type="text" id="module-code" placeholder="e.g. CS101" required>
+            </div>
+            <div class="form-group">
+              <label for="module-name">Module Name</label>
+              <input type="text" id="module-name" placeholder="e.g. Introduction to Computer Science" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Create Module</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate Session Code Modal -->
+    <div class="modal" id="generate-session-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Generate Session Code</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="generate-session-form">
+            <div class="form-group">
+              <label for="module-select">Select Module</label>
+              <select id="module-select" required>
+                <option value="">-- Select a module --</option>
+                <!-- Modules will be loaded here -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="expiration-time">Expiration Time (minutes)</label>
+              <input type="number" id="expiration-time" min="1" max="180" value="30" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Generate Code</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module Details Modal -->
+    <div class="modal" id="module-details-modal">
+      <div class="modal-content module-details-content">
+        <div class="modal-header">
+          <h2 id="module-details-title">Module Details</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="module-details-content">
+          <!-- Module details will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <p>&copy; 2025 Smart Attendance System. All rights reserved.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check authentication
+      const token = sessionStorage.getItem('token');
+      const userType = sessionStorage.getItem('userType');
+      
+      if (!token || userType !== 'lecturer') {
+        window.location.href = 'lecturer-login.html';
+        return;
+      }
+      
+      // Parse JWT payload
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      document.getElementById('welcome-message').textContent = `Welcome, ${payload.name}`;
+      
+      // Initialize dashboard
+      loadModules();
+      checkActiveSessions();
+      
+      // Event listeners for modals
+      const createModuleBtn = document.getElementById('create-module-btn');
+      const createModuleModal = document.getElementById('create-module-modal');
+      const emptyCreateBtn = document.getElementById('empty-create-btn');
+      
+      createModuleBtn.addEventListener('click', () => {
+        createModuleModal.style.display = 'block';
+      });
+      
+      emptyCreateBtn.addEventListener('click', () => {
+        createModuleModal.style.display = 'block';
+      });
+      
+      const generateSessionBtn = document.getElementById('generate-session-btn');
+      const generateSessionModal = document.getElementById('generate-session-modal');
+      
+      generateSessionBtn.addEventListener('click', () => {
+        // Load modules into the select dropdown
+        const moduleSelect = document.getElementById('module-select');
+        moduleSelect.innerHTML = '<option value="">-- Select a module --</option>';
+        
+        fetch('http://localhost:3000/module/list', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => response.json())
+        .then(modules => {
+          modules.forEach(module => {
+            const option = document.createElement('option');
+            option.value = module.id;
+            option.textContent = `${module.code} - ${module.name}`;
+            moduleSelect.appendChild(option);
+          });
+        })
+        .catch(error => {
+          console.error('Error loading modules:', error);
+        });
+        
+        generateSessionModal.style.display = 'block';
+      });
+      
+      // Close buttons for modals
+      document.querySelectorAll('.close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+          });
+        });
+      });
+      
+      // Close modal when clicking outside
+      window.addEventListener('click', (e) => {
+        document.querySelectorAll('.modal').forEach(modal => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      });
+      
+      // Form submissions
+      const createModuleForm = document.getElementById('create-module-form');
+      
+      createModuleForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const code = document.getElementById('module-code').value;
+        const name = document.getElementById('module-name').value;
+        
+        try {
+          const response = await fetch('http://localhost:3000/module/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ code, name }),
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showAlert('Module created successfully!', 'success');
+            createModuleModal.style.display = 'none';
+            document.getElementById('module-code').value = '';
+            document.getElementById('module-name').value = '';
+            loadModules();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch (error) {
+          showAlert('An error occurred. Please try again later.', 'error');
+          console.error('Error:', error);
+        }
+      });
+      
+      const generateSessionForm = document.getElementById('generate-session-form');
+      
+      generateSessionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const moduleId = document.getElementById('module-select').value;
+        const expirationMinutes = document.getElementById('expiration-time').value;
+        
+        if (!moduleId) {
+          showAlert('Please select a module', 'error');
+          return;
+        }
+        
+        try {
+          const response = await fetch('http://localhost:3000/attendance/session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+              module_id: moduleId, 
+              expiration_minutes: expirationMinutes 
+            }),
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showAlert('Session code generated successfully!', 'success');
+            generateSessionModal.style.display = 'none';
+            checkActiveSessions();
+          } else {
+            showAlert(data.message, 'error');
+          }
+        } catch (error) {
+          showAlert('An error occurred. Please try again later.', 'error');
+          console.error('Error:', error);
+        }
+      });
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userType');
+        window.location.href = 'index.html';
+      });
+    });
+    
+    async function loadModules() {
+      const token = sessionStorage.getItem('token');
+      const modulesContainer = document.getElementById('modules-container');
+      const noModules = document.getElementById('no-modules');
+      
+      try {
+        const response = await fetch('http://localhost:3000/module/list', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const modules = await response.json();
+        
+        if (modules.length === 0) {
+          noModules.style.display = 'flex';
+          modulesContainer.innerHTML = '';
+          document.getElementById('modules-count').textContent = '0';
+          document.getElementById('students-count').textContent = '0';
+          return;
+        }
+        
+        noModules.style.display = 'none';
+        document.getElementById('modules-count').textContent = modules.length;
+        
+        // Get total student count (rough estimate for now)
+        let totalStudents = 0;
+        
+        // Load each module details to get student count
+        const modulePromises = modules.map(module => 
+          fetch(`http://localhost:3000/module/${module.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          .then(response => response.json())
+        );
+        
+        const moduleDetails = await Promise.all(modulePromises);
+        
+        moduleDetails.forEach(module => {
+          if (module.studentCount) {
+            totalStudents += module.studentCount;
+          }
+        });
+        
+        document.getElementById('students-count').textContent = totalStudents;
+        
+        modulesContainer.innerHTML = moduleDetails.map(module => `
+          <div class="module-card" data-module-id="${module.id}" data-module-code="${module.code}">
+            <div class="module-card-header">
+              <h3>${module.name}</h3>
+              <span class="module-code">${module.code}</span>
+            </div>
+            <div class="module-card-body">
+              <p><strong>Invite Code:</strong> ${module.invite_code}</p>
+              <p><strong>Students:</strong> ${module.studentCount || 0}</p>
+              <div class="module-card-actions">
+                <button class="btn btn-secondary view-report-btn" data-module-code="${module.code}">View Report</button>
+                <button class="btn btn-primary generate-code-btn" data-module-id="${module.id}">Generate Code</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+        
+        // Add event listeners to buttons
+        document.querySelectorAll('.view-report-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const moduleCode = e.target.dataset.moduleCode;
+            openModuleReport(moduleCode);
+          });
+        });
+        
+        document.querySelectorAll('.generate-code-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const moduleId = e.target.dataset.moduleId;
+            
+            // Pre-select the module in the dropdown
+            const moduleSelect = document.getElementById('module-select');
+            moduleSelect.value = moduleId;
+            
+            // Show the modal
+            document.getElementById('generate-session-modal').style.display = 'block';
+          });
+        });
+      } catch (error) {
+        showAlert('Failed to load modules', 'error');
+        console.error('Error:', error);
+      }
+    }
+    
+    async function checkActiveSessions() {
+      const token = sessionStorage.getItem('token');
+      const activeSessionSection = document.getElementById('active-session-section');
+      const activeSessionCard = document.getElementById('active-session-card');
+      
+      try {
+        const response = await fetch('http://localhost:3000/module/list', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const modules = await response.json();
+        
+        if (modules.length === 0) {
+          activeSessionSection.style.display = 'none';
+          document.getElementById('active-sessions').textContent = '0';
+          return;
+        }
+        
+        // Check each module for active sessions
+        const modulePromises = modules.map(module => 
+          fetch(`http://localhost:3000/module/${module.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          .then(response => response.json())
+        );
+        
+        const moduleDetails = await Promise.all(modulePromises);
+        
+        // Filter modules with active sessions
+        const activeModules = moduleDetails.filter(module => module.activeSession);
+        
+        document.getElementById('active-sessions').textContent = activeModules.length;
+        
+        if (activeModules.length === 0) {
+          activeSessionSection.style.display = 'none';
+          return;
+        }
+        
+        activeSessionSection.style.display = 'block';
+        
+        // Display active sessions
+        activeSessionCard.innerHTML = '';
+        
+        activeModules.forEach(module => {
+          const session = module.activeSession;
+          const expiresAt = new Date(session.expires_at);
+          const now = new Date();
+          const timeLeft = Math.floor((expiresAt - now) / 60000); // Minutes left
+          
+          activeSessionCard.innerHTML += `
+            <div class="session-card">
+              <div class="session-header">
+                <h3>${module.name} (${module.code})</h3>
+                <span class="session-status active">Active</span>
+              </div>
+              <div class="session-body">
+                <div class="session-code-display">
+                  <h4>Session Code</h4>
+                  <div class="code">${session.code}</div>
+                </div>
+                <div class="session-info">
+                  <p><strong>Expires in:</strong> ${timeLeft} minutes</p>
+                  <p><strong>Created:</strong> ${new Date(session.created_at).toLocaleTimeString()}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      } catch (error) {
+        console.error('Error checking active sessions:', error);
+      }
+    }
+    
+    async function openModuleReport(moduleCode) {
+      const token = sessionStorage.getItem('token');
+      const moduleDetailsModal = document.getElementById('module-details-modal');
+      const moduleDetailsContent = document.getElementById('module-details-content');
+      const moduleDetailsTitle = document.getElementById('module-details-title');
+      
+      try {
+        const response = await fetch(`http://localhost:3000/attendance/report/${moduleCode}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const report = await response.json();
+        
+        moduleDetailsTitle.textContent = `${report.module.name} (${report.module.code})`;
+        
+        moduleDetailsContent.innerHTML = `
+          <div class="module-report">
+            <div class="report-summary">
+              <div class="summary-item">
+                <div class="summary-value">${report.statistics.total_students}</div>
+                <div class="summary-label">Students</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${report.statistics.total_sessions}</div>
+                <div class="summary-label">Sessions</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${report.statistics.total_attendances}</div>
+                <div class="summary-label">Attendances</div>
+              </div>
+            </div>
+            
+            <h3>Attendance by Date</h3>
+            <div class="date-attendance">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Students Present</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        if (report.attendanceByDate.length === 0) {
+          moduleDetailsContent.innerHTML += `
+            <tr>
+              <td colspan="2" class="no-data">No attendance data available</td>
+            </tr>
+          `;
+        } else {
+          report.attendanceByDate.forEach(date => {
+            moduleDetailsContent.innerHTML += `
+              <tr>
+                <td>${new Date(date.date).toLocaleDateString()}</td>
+                <td>${date.student_count}</td>
+              </tr>
+            `;
+          });
+        }
+        
+        moduleDetailsContent.innerHTML += `
+                </tbody>
+              </table>
+            </div>
+            
+            <h3>Student Attendance</h3>
+            <div class="student-attendance">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th>Reg Number</th>
+                    <th>Name</th>
+                    <th>Attendance</th>
+                    <th>Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        if (report.students.length === 0) {
+          moduleDetailsContent.innerHTML += `
+            <tr>
+              <td colspan="4" class="no-data">No students registered for this module</td>
+            </tr>
+          `;
+        } else {
+          report.students.forEach(student => {
+            const attendanceRate = student.total_sessions > 0 
+              ? Math.round((student.attendance_count / student.total_sessions) * 100) 
+              : 0;
+            
+            let rateClass = 'attendance-high';
+            if (attendanceRate < 50) {
+              rateClass = 'attendance-low';
+            } else if (attendanceRate < 75) {
+              rateClass = 'attendance-medium';
+            }
+            
+            moduleDetailsContent.innerHTML += `
+              <tr>
+                <td>${student.reg_number}</td>
+                <td>${student.name}</td>
+                <td>${student.attendance_count} / ${student.total_sessions}</td>
+                <td><span class="attendance-rate ${rateClass}">${attendanceRate}%</span></td>
+              </tr>
+            `;
+          });
+        }
+        
+        moduleDetailsContent.innerHTML += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        
+        moduleDetailsModal.style.display = 'block';
+      } catch (error) {
+        showAlert('Failed to load module report', 'error');
+        console.error('Error:', error);
+      }
+    }
+  </script>
+</body>
+</html>
