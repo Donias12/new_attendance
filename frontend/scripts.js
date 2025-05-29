@@ -154,7 +154,12 @@ function isCurrentPage(path) {
   return window.location.pathname.endsWith(path);
 }
 
-// Check if user is authenticated on pages that require it
+/**
+ * API base URL
+ */
+const API_BASE_URL = 'https://overjoyed-ash-english.glitch.me/api';
+
+// Check if user is authenticated on pages that require authentication
 document.addEventListener('DOMContentLoaded', () => {
   // Skip authentication check for public pages
   if (
