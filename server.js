@@ -1,20 +1,13 @@
-import express from 'express';
-import path from 'path';
-import mysql from 'mysql';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-
-dotenv.config();
+const express = require('express');
+const path = require('path');
+const mysql = require('mysql');
+require('dotenv').config();
 
 const app = express();
 
-// To get __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // === MySQL Connection Pool Setup ===
 const pool = mysql.createPool({
-  connectionLimit: 10, // Adjust if needed
+  connectionLimit: 10,
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
