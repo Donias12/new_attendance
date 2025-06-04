@@ -5,38 +5,24 @@ require('dotenv').config();
 
 const app = express();
 
-// === MySQL Auto-Reconnect Setup ===
-let connection;
+// === MySQL Connection Pool Setup ===
+const pool = mysql.createPool({
+  connectionLimit: 10, // Adjust if needed
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
 
-function handleDisconnect() {
-  connection = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
-  });
-
-  connection.connect(err => {
-    if (err) {
-      console.error('❌ Error connecting to MySQL:', err);
-      setTimeout(handleDisconnect, 2000); // retry after 2 sec
-    } else {
-      console.log('✅ Connected to MySQL database');
-    }
-  });
-
-  connection.on('error', err => {
-    console.error('❌ MySQL error:', err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-      console.log('🔄 Reconnecting to MySQL...');
-      handleDisconnect();
-    } else {
-      throw err;
-    }
-  });
-}
-
-handleDisconnect();
+// Optional: Test connection once at startup
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('❌ Error connecting to MySQL:', err);
+    return;
+  }
+  console.log('✅ Connected to MySQL database (pool)');
+  connection.release();
+});
 
 // === Serve Frontend ===
 app.use(express.static(path.join(__dirname, '../dist')));
